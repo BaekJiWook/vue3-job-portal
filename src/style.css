@@ -1,0 +1,17 @@
+/* 서체 : noto sans */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&display=swap');
+
+
+/* 변수 선언 */
+:root {
+  --main-color-dark: #4B3C30;
+  --main-color-light: #D1B000;
+  --text-color-dark: #1e1e1e;
+  --text-color-mid: #666;
+  --text-color-light: #b3b3b3;
+}
+
+body {
+  font-family: 'Noto Sans KR', sans-serif;
+  color: var(--text-color-dark);
+}

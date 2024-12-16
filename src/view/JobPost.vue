@@ -1,0 +1,301 @@
+<script setup>
+import { useAuth } from '../auth/auth';
+import { Icon } from '@iconify/vue';
+import { onMounted, ref, onUnmounted } from 'vue';
+import supabase from '../supabase';
+import { useRouter } from 'vue-router';
+const router = useRouter();
+// const isLogin = ref(false) 
+
+// useAuth()함수를 에서 이 세가지를 불러오겠다
+const { isLogin, user, checkLoginStatus } = useAuth();
+
+const previewImage = ref(null);
+const isLoading = ref(false);
+
+const title = ref('');
+const todo = ref('');
+const pay_rule = ref('');
+const pay = ref('');
+const desc = ref('');
+const company_name = ref('');
+const location = ref('');
+const tel = ref('');
+
+
+// 전역변수로 선언, 상수const가 아닌 변수let!!
+let file = null; //파일객체 저장 변수
+const img_url = ref('');// 첨부한 사진은 storage에 저장하고 url을 저장
+
+const onFileChange = (e) => {
+  file = e.target.files[0];
+  console.log(file)
+
+  if(file) {
+    previewImage.value = URL.createObjectURL(file);
+    console.log(previewImage.value);
+  }
+}
+
+const uploadImage = async () => {
+  const { data, error } = await supabase
+  .storage
+  .from('images') // 버킷명
+  // '파일경로, 파일명'
+  .upload( file.name, file, {
+    cacheControl: '3600', //캐시설정
+    upsert: false //덮어쓰기
+  })
+if(error) {
+  alert('업로드 오류');
+}else {
+  console.log('update file:', data) //데이터 확인
+  
+  // 스토리지에 저장된 이미지 url경로를 알기위해 
+  const { data:imgData } = supabase
+  .storage
+  .from('images')
+  .getPublicUrl(file.name)
+  console.log('file url:', imgData.publicUrl) //데이터 확인
+
+  // 테이블에 저장할 이미지 URL 변수
+  img_url.value = imgData.publicUrl;
+}
+
+}
+
+const handleSubmit = async () => {
+  isLoading.value = true;
+
+  // 이미지값이 있는지 확인하고 있을경우 업로드 
+  if(previewImage.value){
+     await uploadImage();
+  }
+
+  const { error } = await supabase
+    .from('job_posts')
+    .insert({ 
+      title: title.value,
+      todo: todo.value,
+      pay_rule: pay_rule.value,
+      pay: pay.value,
+      desc: desc.value,
+      company_name: company_name.value,
+      location: location.value,
+      tel: tel.value,
+      img_url: img_url.value,
+     })
+    
+     if(error) {
+      alert(error.message || '등록 실패');
+     } else {
+      alert('등록 성공');
+      router.push('/job-list')
+     }
+  isLoading.value = false;
+}
+
+onMounted( async () => {
+  await checkLoginStatus(); 
+  console.log('현재 사용자:', user.value); // 사용자 정보 로그 출력
+})
+
+onUnmounted( () => {
+  console.log('unmounted');
+  if(previewImage.value) {
+    URL.revokeObjectURL(previewImage.value);
+  }
+})
+</script>
+
+<template>
+  <div class="loading_info" v-if="isLoading" >저장중...</div>
+    <div class="form-container" v-if="isLogin">
+    <form @submit.prevent="handleSubmit">
+      <!-- 1.제목 -->
+      <div class="form-group">
+        <label for="title">제목</label>
+        <input 
+          type="text" 
+          id="title" 
+          required
+          placeholder="공고 내용을 요약해 주세요."
+          v-model="title"
+        >
+      </div>
+
+      <!-- 2.하는 일 -->
+      <div class="form-group">
+        <label for="todo">하는 일</label>
+        <input 
+          type="text" 
+          id="todo" 
+          v-model="todo"
+          placeholder="해야할 업무를 입력해주세요."
+          required
+        />
+      </div>
+
+      <!-- 3.시급, 월급 항목 선택 -->
+      <div class="form-group">
+        <input 
+          type="radio" 
+          id="pay_rule1" 
+          name="pay_rule" 
+          value="시급" 
+          v-model="pay_rule" 
+          required 
+          checked>
+        <input 
+          type="radio" 
+          id="pay_rule2" 
+          name="pay_rule" 
+          value="월급" 
+          v-model="pay_rule" 
+          required >
+        <div class="tab-group">
+          <label for="pay_rule1">시급</label>
+          <label for="pay_rule2">월급</label>
+        </div>
+        <!-- 4.금액 입력 -->
+        <input 
+          type="number" 
+          id="pay" 
+          placeholder="시급 또는 월급을 입력해주세요."
+          v-model="pay" 
+          required
+        >
+      </div>
+
+      <!-- 5.자세한 설명 -->
+      <div class="form-group">
+        <label for="desc">자세한 설명</label>
+        <textarea 
+          name="desc" 
+          id="desc" 
+          v-model="desc"
+          rows="4"
+          required
+          placeholder="구체적인 업무 내용, 근무여건, 지원자가 갖추어야 할 능력 등 우대 사항에 대해 알려주세요."
+        ></textarea>
+      </div>
+
+      <!-- 6.업체명 -->
+      <div class="form-group">
+        <label for="company_name">업체명</label>
+        <input 
+          type="text" 
+          id="company_name" 
+          v-model="company_name" 
+          required
+          placeholder="예) 땅콩가게"
+        >
+      </div>
+
+      <!-- 7.위치(주소) -->
+      <div class="form-group">
+        <label for="location">위치</label>
+        <input 
+          type="text" 
+          id="location" 
+          v-model="location" 
+          required 
+          placeholder="예) 서울시 강남구 논현동"
+        >
+      </div>
+
+      <!-- 8.연락처 -->
+      <div class="form-group">
+        <label for="tel">연락처</label>
+        <input type="text" id="tel" v-model="tel" required placeholder="예) 010-1234-5678">
+      </div>
+
+      <!-- 9.사진(선택 입력) -->
+      <div class="form-group">
+        <label for="photo">
+          <p class="title">사진(선택)</p>
+          <figure>
+            <Icon icon="mdi-light:camera" width="64" height="64"  style="color: #1e1e1e;" />
+            <img :src="previewImage" alt="미리보기" width="64" height="64" v-if="previewImage"/>
+            <img src="/box64.jpg" alt="미리보기" width="64" height="64" v-if="!previewImage"/>
+          </figure>
+        </label>
+        <input
+          @change="onFileChange" 
+          type="file" id="photo" accept="image/*">
+        <!--  accept="image/*" : "모든 이미지 파일"을 허용 -->
+      </div>
+      <!-- 등록하기 버튼 -->
+      <button class="btn-submit">등록하기</button>
+    </form>
+  </div>
+</template>
+
+<style scoped lang="scss">
+// 이미선언 해놓은거 가져옴
+  @use "../style/form.scss";
+
+  .form-container {
+    margin-top: 20px;
+    padding-bottom: 50px;
+
+    .tab-group {
+      display: flex;
+      gap: 15px;
+      label { 
+        flex: 1;
+        border: 1px solid var(--main-color-dark);
+        border-radius: 8px;
+        text-align: center;
+        padding: 12px;
+      }
+    }
+
+    input[type="radio"] {
+        display: none;
+        // 라디오버튼 안보이게 하기
+    }
+
+    input[type="radio"]:nth-child(1):checked ~ .tab-group label:nth-child(1) {
+      background: var(--main-color-dark);
+      color: #fff;
+    }
+
+    input[type="radio"]:nth-child(2):checked ~ .tab-group label:nth-child(2) {
+      background: var(--main-color-dark);
+      color: #fff;
+    }
+
+    #pay { margin-top: 8px;}
+
+    // for=photo를 가진 form-group의 후손 input의 보더 스타일 제거
+    .form-group:has(label[for=photo]) input {
+      border: none;
+    }
+
+    //file 아이콘
+    label[for=photo] {
+      figure { 
+        display: flex; 
+        align-items: center;
+        img { 
+          border: 1px solid red;
+          margin-left: 30px; 
+        }
+      }
+    }
+    input[type="file"] {
+      display: none;
+      // 파일선택이라는 부분도 안보이게(아이콘으로 대체)
+    }
+  }
+
+  .btn-submit {
+    background: var(--main-color-light);
+  }
+
+  .form-group:has(label[for=photo]) {
+    padding-bottom: 25px;
+    border-bottom: 5px solid #ccc;
+  }
+</style>

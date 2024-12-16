@@ -6,7 +6,7 @@ import JobPost from '../view/JobPost.vue'
 import JobList from '../view/JobList.vue'
 import JobDetail from '../view/JobDetail.vue'
 import UserProfile from '../view/UserProfile.vue'
-import JobPostUpdated from '../view/jobPostUpdated.vue';
+import JobPostUpdated from '../view/JobPostUpdated.vue';
 
 // path: 경로(소문자,하이픈 이용), component:연결할 컴포넌트 명
 const routes = [

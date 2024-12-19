@@ -22,20 +22,88 @@ const company_name = ref('');
 const location = ref('');
 const tel = ref('');
 
-const previewImage = ref(null);
-
-let file = null; //파일객체 저장 변수 
+const previewImage = ref(null); // 미리보기 이미지 변수
 const img_url = ref('');// 첨부한 사진은 storage에 저장하고 url을 저장
 const prev_img_url = ref('')// 이전 이미지 url 
+let file = null; //파일객체 저장 변수 
+
+
+const handleSubmit = async () => {
+    isLoading.value = true;
+
+    try {
+        if (file && previewImage.value) {
+            if (!prev_img_url.value.includes(file.name)) {
+                await uploadImage();
+
+                const { error } = await supabase
+                    .storage
+                    .from('images')
+                    .remove([prev_img_url.value.split('/').pop()]);
+                if (error) throw new Error('기존 이미지 삭제 실패');
+            }
+        } else if (!file && prev_img_url.value) {
+            // 파일 첨부 없이 기존 이미지 사용
+            img_url.value = prev_img_url.value;
+        }
+
+        const { error } = await supabase
+            .from('job_posts')
+            .update({
+                title: title.value,
+                todo: todo.value,
+                pay_rule: pay_rule.value,
+                pay: pay.value,
+                desc: desc.value,
+                company_name: company_name.value,
+                location: location.value,
+                tel: tel.value,
+                img_url: img_url.value,
+            })
+            .eq('id', route.params.id);
+
+        if (error) throw new Error('글 수정 실패');
+
+        alert('글 수정 성공');
+        router.push('/job-list');
+    } catch (error) {
+        alert(error.message || '알 수 없는 오류 발생');
+    } finally {
+        isLoading.value = false;
+    }
+};
 
 const onFileChange = (e) => {
-  file = e.target.files[0];
-  console.log(file)
+    file = e.target.files[0];
+    console.log(file);
 
-  if(file) {
-    previewImage.value = URL.createObjectURL(file);
-    console.log(previewImage.value);
+    if(file) {
+      previewImage.value = URL.createObjectURL(file);
+      console.log(previewImage.value);
+    }
   }
+
+// 수정할 글 가져오기
+const getPost = async () => {
+    const { data, error } = await supabase
+    .from('job_posts')
+    .select()
+    .eq('id', route.params.id)
+    .single()
+    console.log('post: ', data);
+
+    // 가져온 데이터를 상태 변수에 저장하여 폼에 표시
+    title.value = data.title;
+    todo.value = data.todo;
+    pay_rule.value = data.pay_rule;
+    pay.value = data.pay;
+    desc.value = data.desc
+    company_name.value = data.company_name;
+    location.value = data.location;
+    tel.value = data.tel;
+    previewImage.value = data.img_url;
+
+    prev_img_url.value = data.img_url; // 이전 이미지 URL
 }
 
 const uploadImage = async () => {
@@ -65,73 +133,6 @@ const uploadImage = async () => {
 
 }
 
-const handleSubmit = async () => {
-    isLoading.value = true;
-
-    // 이미지값이 있는지 확인하고 있을경우 업로드 
-    if(previewImage.value) {
-      // 기존 이미지 파일과 다른 경우(새로 첨부)
-      if(!prev_img_url.value.includes(file.name)) {
-        await uploadImage();
-
-        // 기존 이미지 삭제
-        const { data, error } = await supabase
-          .storage
-          .from('images')
-          .remove([prev_img_url.value.split('/').pop()])
-      } else {
-        // 파일 미첨부시 이전 이미지 사용
-        img_url.value = prev_img_url.value;
-      }
-    }
-
-    const { error } = await supabase
-    .from('job_posts')
-    .update({ 
-        title: title.value,
-        todo: todo.value,
-        pay_rule: pay_rule.value,
-        pay: pay.value,
-        desc: desc.value,
-        company_name: company_name.value,
-        location: location.value,
-        tel: tel.value,
-        img_url: img_url.value,
-    })
-    .eq('id', route.params.id)
-
-    if(error) {
-        alert(error.message || '글수정 실패');
-    } else {
-        alert('글수정 성공');
-        router.push('/job-list');
-    }
-    
-    isLoading.value = false;
-}
-
-// 수정할 글 가져오기
-const getPost = async () => {
-    const { data, error } = await supabase
-    .from('job_posts')
-    .select()
-    .eq('id', route.params.id)
-    .single()
-    console.log('post: ', data);
-
-    // 가져온 데이터를 상태 변수에 저장하여 폼에 표시
-    title.value = data.title;
-    todo.value = data.todo;
-    pay_rule.value = data.pay_rule;
-    pay.value = data.pay;
-    desc.value = data.desc
-    company_name.value = data.company_name;
-    location.value = data.location;
-    tel.value = data.tel;
-    previewImage.value = data.img_url;
-
-    prev_img_url.value = data.img_url; // 이전 이미지 URL
-}
 
 // 마운트시 로그인 상태 확인하기
 onMounted(async() => {
@@ -260,24 +261,23 @@ onUnmounted(() => {
   </template>
   
   
-    
 <style lang="scss" scoped>
-@use "../style/form.scss";
+  @use "../style/form.scss";
 
-.form-container {
+  .form-container {
     margin-top: 20px;
     padding-bottom: 50px;
 
     .tab-group {
-    display: flex;
-    gap: 15px;
-    label { 
+      display: flex;
+      gap: 15px;
+      label { 
         flex: 1;
         border: 1px solid var(--main-color-dark);
         border-radius: 8px;
         text-align: center;
         padding: 12px;
-    }
+      }
     }
 
     input[type="radio"] {
@@ -285,44 +285,44 @@ onUnmounted(() => {
     }
 
     input[type="radio"]:nth-child(1):checked ~ .tab-group label:nth-child(1) {
-    background: var(--main-color-dark);
-    color: #fff;
+      background: var(--main-color-dark);
+      color: #fff;
     }
 
     input[type="radio"]:nth-child(2):checked ~ .tab-group label:nth-child(2) {
-    background: var(--main-color-dark);
-    color: #fff;
+      background: var(--main-color-dark);
+      color: #fff;
     }
 
     #pay { margin-top: 8px;}
 
     // for=photo를 가진 form-group의 후손 input의 보더 스타일 제거
     .form-group:has(label[for=photo]) input {
-    border: none;
+      border: none;
     }
 
     //file 아이콘
     label[for=photo] {
-    figure { 
+      figure { 
         display: flex; 
         align-items: center;
         img { 
-        border: 1px solid red;
-        margin-left: 30px; 
+          border: 1px solid red;
+          margin-left: 30px; 
         }
-    }
+      }
     }
     input[type="file"] {
-    display: none;
+      display: none;
     }
-}
+  }
 
-.btn-submit {
+  .btn-submit {
     background: var(--main-color-light);
-}
+  }
 
-.form-group:has(label[for=photo]) {
+  .form-group:has(label[for=photo]) {
     padding-bottom: 25px;
     border-bottom: 5px solid #ccc;
-}
+  }
 </style>
